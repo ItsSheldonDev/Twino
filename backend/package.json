@@ -1,0 +1,41 @@
+{
+  "name": "twino",
+  "version": "1.0.0",
+  "description": "API pour gérer le budget de couple",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --target=node --outdir=dist",
+    "start": "NODE_ENV=production bun dist/index.js",
+    "lint": "tsc --noEmit",
+    "format": "bunx prettier --write \"src/**/*.ts\"",
+    "db:push": "bunx prisma db push",
+    "db:migrate": "bunx prisma migrate dev",
+    "db:deploy": "bunx prisma migrate deploy",
+    "db:studio": "bunx prisma studio",
+    "db:generate": "bunx prisma generate",
+    "db:reset": "bunx prisma migrate reset"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.3.2",
+    "@hono/openapi": "^0.0.8",
+    "@hono/swagger-ui": "^0.2.1",
+    "@hono/zod-validator": "^0.1.11",
+    "@prisma/client": "^5.6.0",
+    "argon2": "^0.31.2",
+    "axios": "^1.6.2",
+    "crypto": "^1.0.1",
+    "date-fns": "^2.30.0",
+    "dotenv": "^16.3.1",
+    "hono": "^3.10.1",
+    "jsonwebtoken": "^9.0.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/node": "^20.9.1",
+    "prettier": "^3.1.0",
+    "prisma": "^5.6.0",
+    "typescript": "^5.2.2"
+  }
+}

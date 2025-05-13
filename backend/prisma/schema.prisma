@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // ou SQLite pour le développement
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String      @id @default(uuid())
+  email                 String      @unique
+  name                  String
+  passwordHash          String
+  profilePhoto          Bytes?      // Ajout du champ pour stocker la photo en binaire
+  resetToken            String?     // Token de réinitialisation de mot de passe
+  resetTokenExpires     DateTime?   // Date d'expiration du token
+  bankConnectionId      String?     // ID de référence GoCardless
+  requisitionId         String?     @unique
+  bankAccountIds        String[]    // IDs des comptes bancaires connectés
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  transactions          Transaction[]
+  subscriptions         Subscription[]
+  savingsAccounts       SavingsAccount[]
+  sharedExpenses        SharedExpense[] @relation("UserSharedExpenses")
+  partnerSharedExpenses SharedExpense[] @relation("PartnerSharedExpenses") 
+  notificationSettings  NotificationSetting?
+  savingsGoals          SavingsGoal[]
+
+  @@map("users")
+}
+
+model Transaction {
+  id             String    @id @default(uuid())
+  externalId     String    @unique  // ID de la transaction chez GoCardless
+  userId         String
+  amount         Float
+  currency       String    @default("EUR")
+  description    String
+  category       String?   // Catégorie automatique ou manuelle
+  transactionDate DateTime
+  bookingDate    DateTime?
+  valueDate      DateTime?
+  isShared       Boolean   @default(false)
+  sharingRatio   Float?    // Pourcentage pour l'utilisateur principal (0-100)
+  isRecurring    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id])
+
+  @@map("transactions")
+}
+
+model Subscription {
+  id           String    @id @default(uuid())
+  userId       String
+  name         String
+  amount       Float
+  currency     String    @default("EUR")
+  category     String
+  dueDate      Int       // Jour du mois (1-31)
+  isShared     Boolean   @default(false)
+  sharingRatio Float?    // Pourcentage pour l'utilisateur principal (0-100)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model SavingsAccount {
+  id                   String    @id @default(uuid())
+  userId               String
+  type                 String    // "Livret A", "LEP", etc.
+  name                 String
+  balance              Float     @default(0)
+  monthlyContribution  Float
+  interestRate         Float?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  user                 User      @relation(fields: [userId], references: [id])
+
+  @@map("savings_accounts")
+}
+
+model SavingsGoal {
+  id            String    @id @default(uuid())
+  userId        String
+  name          String
+  targetAmount  Float
+  currentAmount Float     @default(0)
+  deadline      DateTime?
+  isShared      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user          User      @relation(fields: [userId], references: [id])
+
+  @@map("savings_goals")
+}
+
+model SharedExpense {
+  id             String    @id @default(uuid())
+  description    String
+  amount         Float
+  currency       String    @default("EUR")
+  category       String?
+  date           DateTime
+  userId         String    // Utilisateur qui a payé
+  partnerId      String    // Partenaire qui doit rembourser
+  splitRatio     Float     // Pourcentage pour l'utilisateur (0-100)
+  isSettled      Boolean   @default(false)
+  settledDate    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation("UserSharedExpenses", fields: [userId], references: [id])
+  partner        User      @relation("PartnerSharedExpenses", fields: [partnerId], references: [id])
+
+  @@map("shared_expenses")
+}
+
+model NotificationSetting {
+  id                      String    @id @default(uuid())
+  userId                  String    @unique
+  budgetAlerts            Boolean   @default(true)
+  paymentReminders        Boolean   @default(true)
+  reminderDays            Int       @default(3)  // Jours avant l'échéance
+  largeTransactionAlerts  Boolean   @default(true)
+  largeTransactionAmount  Float     @default(100)
+  weeklyReports           Boolean   @default(true)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  user                    User      @relation(fields: [userId], references: [id])
+
+  @@map("notification_settings")
+}
