@@ -40,7 +40,6 @@ export class SharedController {
       const user = c.get('user');
       const statusFilter = c.req.query('status'); // 'settled', 'pending', 'all'
       
-      // Construction du filtre
       const filter: any = {
         OR: [
           { userId: user.userId },
@@ -54,7 +53,6 @@ export class SharedController {
         filter.isSettled = false;
       }
       
-      // Récupération des dépenses partagées
       const sharedExpenses = await prisma.sharedExpense.findMany({
         where: filter,
         orderBy: {
@@ -92,7 +90,6 @@ export class SharedController {
       const user = c.get('user');
       const data = await c.req.json() as SharedExpenseData;
       
-      // Validation des données
       if (!data.description || data.description.trim() === '') {
         return c.json({ error: 'Description requise' }, 400);
       }
@@ -113,7 +110,6 @@ export class SharedController {
         return c.json({ error: 'Ratio de partage invalide (0-100)' }, 400);
       }
       
-      // Vérification que le partenaire existe
       const partner = await prisma.user.findUnique({
         where: { id: data.partnerId }
       });
@@ -122,7 +118,6 @@ export class SharedController {
         return c.json({ error: 'Partenaire non trouvé' }, 404);
       }
       
-      // Création de la dépense partagée
       const sharedExpense = await prisma.sharedExpense.create({
         data: {
           userId: user.userId,
@@ -154,7 +149,6 @@ export class SharedController {
       const id = c.req.param('id');
       const data = await c.req.json();
       
-      // Vérification que la dépense partagée existe et appartient à l'utilisateur
       const sharedExpense = await prisma.sharedExpense.findFirst({
         where: {
           id,
@@ -169,7 +163,6 @@ export class SharedController {
         return c.json({ error: 'Dépense partagée non trouvée' }, 404);
       }
       
-      // Validation des données
       if (data.amount !== undefined && (isNaN(data.amount) || data.amount <= 0)) {
         return c.json({ error: 'Montant invalide' }, 400);
       }
@@ -178,7 +171,6 @@ export class SharedController {
         return c.json({ error: 'Ratio de partage invalide (0-100)' }, 400);
       }
       
-      // Mise à jour de la dépense partagée
       const updatedSharedExpense = await prisma.sharedExpense.update({
         where: { id },
         data: {
@@ -209,7 +201,6 @@ export class SharedController {
       const user = c.get('user');
       const id = c.req.param('id');
       
-      // Vérification que la dépense partagée existe et appartient à l'utilisateur
       const sharedExpense = await prisma.sharedExpense.findFirst({
         where: {
           id,
@@ -224,7 +215,6 @@ export class SharedController {
         return c.json({ error: 'Dépense partagée non trouvée' }, 404);
       }
       
-      // Suppression de la dépense partagée
       await prisma.sharedExpense.delete({
         where: { id }
       });
@@ -244,7 +234,6 @@ export class SharedController {
     try {
       const user = c.get('user');
       
-      // Trouver le partenaire
       const partner = await prisma.user.findFirst({
         where: {
           id: {
@@ -263,7 +252,6 @@ export class SharedController {
         }, 404);
       }
       
-      // Récupérer toutes les dépenses non réglées
       const pendingExpenses = await prisma.sharedExpense.findMany({
         where: {
           isSettled: false,
@@ -280,32 +268,25 @@ export class SharedController {
         }
       });
       
-      // Calculer ce que l'utilisateur doit au partenaire
       let userOwesToPartner = 0;
       
-      // Calculer ce que le partenaire doit à l'utilisateur
       let partnerOwesToUser = 0;
       
-      // Calcul des montants
       pendingExpenses.forEach((expense: SharedExpense) => {
         const partnerShare = expense.amount * (1 - expense.splitRatio / 100);
         
         if (expense.userId === user.userId) {
-          // Dépense payée par l'utilisateur, le partenaire lui doit sa part
           partnerOwesToUser += partnerShare;
         } else {
-          // Dépense payée par le partenaire, l'utilisateur lui doit sa part
           userOwesToPartner += expense.amount * (expense.splitRatio / 100);
         }
       });
       
-      // Calculer le solde net (positif si le partenaire doit à l'utilisateur)
       const netBalance = partnerOwesToUser - userOwesToPartner;
       
-      // Créer les résumés de solde pour chaque personne
       const userSummary: BalanceSummary = {
         userId: user.userId,
-        userName: user.email ? user.email.split('@')[0] : 'Utilisateur', // Utiliser le début de l'email comme nom si nécessaire
+        userName: user.email ? user.email.split('@')[0] : 'Utilisateur',
         owes: userOwesToPartner,
         isOwed: partnerOwesToUser,
         netBalance
@@ -347,7 +328,6 @@ export class SharedController {
         return c.json({ error: 'ID du partenaire requis' }, 400);
       }
       
-      // Vérifier que le partenaire existe
       const partner = await prisma.user.findUnique({
         where: { id: partnerId }
       });
@@ -356,7 +336,6 @@ export class SharedController {
         return c.json({ error: 'Partenaire non trouvé' }, 404);
       }
       
-      // Récupérer toutes les dépenses non réglées entre les deux utilisateurs
       const pendingExpenses = await prisma.sharedExpense.findMany({
         where: {
           isSettled: false,
@@ -373,7 +352,6 @@ export class SharedController {
         }
       });
       
-      // Marquer toutes les dépenses comme réglées
       await prisma.$transaction(
         pendingExpenses.map((expense) => 
           prisma.sharedExpense.update({

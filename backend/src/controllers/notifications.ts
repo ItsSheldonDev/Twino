@@ -2,7 +2,6 @@ import type { Context } from 'hono';
 import { prisma } from '../app';
 import { addDays, isBefore } from 'date-fns';
 
-// Interfaces pour les types
 interface Subscription {
   id: string;
   userId: string;
@@ -64,7 +63,6 @@ export class NotificationController {
     try {
       const user = c.get('user');
       
-      // Récupération des paramètres de notification
       const settings = await prisma.notificationSetting.findUnique({
         where: {
           userId: user.userId
@@ -72,7 +70,6 @@ export class NotificationController {
       });
       
       if (!settings) {
-        // Créer des paramètres par défaut si non existants
         const defaultSettings = await prisma.notificationSetting.create({
           data: {
             userId: user.userId,
@@ -106,7 +103,6 @@ export class NotificationController {
       const user = c.get('user');
       const data = await c.req.json() as NotificationSettingsData;
       
-      // Mise à jour des paramètres de notification
       const settings = await prisma.notificationSetting.upsert({
         where: {
           userId: user.userId
@@ -146,7 +142,6 @@ export class NotificationController {
     try {
       const user = c.get('user');
       
-      // Récupération des paramètres de notification
       const settings = await prisma.notificationSetting.findUnique({
         where: {
           userId: user.userId
@@ -161,9 +156,7 @@ export class NotificationController {
       
       const alerts: Alert[] = [];
       
-      // Alertes de rappel de paiement
       if (settings.paymentReminders) {
-        // Récupérer les abonnements à venir dans les X prochains jours
         const subscriptions = await prisma.subscription.findMany({
           where: {
             userId: user.userId
@@ -173,20 +166,16 @@ export class NotificationController {
         const today = new Date();
         const reminderDate = addDays(today, settings.reminderDays);
         
-        // Déterminer quels abonnements arrivent bientôt à échéance
         const currentMonth = today.getMonth();
         const currentYear = today.getFullYear();
         
         subscriptions.forEach((subscription: Subscription) => {
-          // Date d'échéance ce mois-ci
           let dueDate = new Date(currentYear, currentMonth, subscription.dueDate);
           
-          // Si la date est déjà passée, prendre le mois suivant
           if (isBefore(dueDate, today)) {
             dueDate = new Date(currentYear, currentMonth + 1, subscription.dueDate);
           }
           
-          // Vérifier si l'échéance est dans la période de rappel
           if (isBefore(dueDate, reminderDate)) {
             alerts.push({
               type: 'payment_reminder',
@@ -199,16 +188,12 @@ export class NotificationController {
         });
       }
       
-      // Alertes de dépassement de budget
       if (settings.budgetAlerts) {
-        // Pour chaque catégorie, vérifier si les dépenses du mois dépassent la moyenne des 3 derniers mois
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         const startCurrentMonth = new Date(currentYear, currentMonth, 1);
         const endCurrentMonth = new Date(currentYear, currentMonth + 1, 0);
         
-        // Utiliser SQL brut pour éviter les problèmes de types avec groupBy
-        // Récupérer les dépenses du mois en cours par catégorie
         const currentMonthExpensesQuery = await prisma.$queryRaw`
           SELECT 
             COALESCE(category, 'Divers') as category,
@@ -222,7 +207,6 @@ export class NotificationController {
           GROUP BY category
         `;
         
-        // Récupérer les moyennes des 3 derniers mois par catégorie
         const threeMonthsAgo = new Date(currentYear, currentMonth - 3, 1);
         
         const historicalExpensesQuery = await prisma.$queryRaw`
@@ -239,7 +223,6 @@ export class NotificationController {
           GROUP BY category
         `;
         
-        // Convertir les résultats en map pour faciliter les comparaisons
         const historicalMap = new Map<string, { total: number, count: number }>();
         
         for (const item of historicalExpensesQuery as any[]) {
@@ -249,11 +232,10 @@ export class NotificationController {
           
           historicalMap.set(category, {
             total,
-            count: count > 0 ? count : 1 // Éviter division par zéro
+            count: count > 0 ? count : 1
           });
         }
         
-        // Comparer les dépenses actuelles aux moyennes historiques
         for (const item of currentMonthExpensesQuery as any[]) {
           const category = item.category || 'Divers';
           const currentAmount = parseFloat(item.total) || 0;
@@ -261,9 +243,8 @@ export class NotificationController {
           const historical = historicalMap.get(category);
           
           if (historical) {
-            const averageAmount = historical.total / 3; // Moyenne sur 3 mois
+            const averageAmount = historical.total / 3; 
             
-            // Si les dépenses actuelles dépassent 120% de la moyenne
             if (currentAmount > averageAmount * 1.2) {
               alerts.push({
                 type: 'budget_alert',
@@ -282,9 +263,7 @@ export class NotificationController {
         }
       }
       
-      // Alertes de transactions importantes
       if (settings.largeTransactionAlerts) {
-        // Récupérer les transactions importantes des 7 derniers jours
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         
@@ -292,14 +271,14 @@ export class NotificationController {
           where: {
             userId: user.userId,
             amount: {
-              lt: -settings.largeTransactionAmount // Montant négatif car c'est une dépense
+              lt: -settings.largeTransactionAmount
             },
             transactionDate: {
               gte: sevenDaysAgo
             }
           },
           orderBy: {
-            amount: 'asc' // Pour avoir les plus grosses dépenses en premier
+            amount: 'asc'
           },
           take: 5
         });
@@ -315,16 +294,13 @@ export class NotificationController {
         });
       }
       
-      // Tri des alertes par sévérité et date
       alerts.sort((a: Alert, b: Alert) => {
-        // D'abord par sévérité (danger > warning > info)
         const severityOrder: Record<string, number> = {
           'danger': 0,
           'warning': 1,
           'info': 2
         };
         
-        // Utilisation de valeurs par défaut pour gérer les undefined
         const aSeverity = a.severity || 'info';
         const bSeverity = b.severity || 'info';
         
@@ -332,17 +308,13 @@ export class NotificationController {
         
         if (severityDiff !== 0) return severityDiff;
         
-        // Ensuite par date (les plus récentes en premier)
-        // Extraction sécurisée des dates
         const dateA = a.date || a.dueDate || '';
         const dateB = b.date || b.dueDate || '';
         
-        // Éviter les comparaisons avec des valeurs undefined
         if (!dateA && !dateB) return 0;
         if (!dateA) return 1;
         if (!dateB) return -1;
         
-        // Maintenant on peut comparer en toute sécurité
         return dateB.localeCompare(dateA);
       });
       

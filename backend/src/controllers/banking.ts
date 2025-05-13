@@ -49,7 +49,6 @@ export class BankingController {
         agreement.id
       );
       
-      // Mise à jour des informations de l'utilisateur
       await prisma.user.update({
         where: { id: user.userId },
         data: {
@@ -103,7 +102,6 @@ export class BankingController {
         }, 404);
       }
       
-      // Mise à jour des informations de l'utilisateur
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -129,7 +127,6 @@ export class BankingController {
     try {
       const user = c.get('user');
       
-      // Récupération des informations bancaires de l'utilisateur
       const userInfo = await prisma.user.findUnique({
         where: { id: user.userId },
         select: {
@@ -210,7 +207,6 @@ export class BankingController {
     try {
       const user = c.get('user');
       
-      // Récupération des informations bancaires de l'utilisateur
       const userInfo = await prisma.user.findUnique({
         where: { id: user.userId },
         select: {
@@ -226,7 +222,6 @@ export class BankingController {
       
       const balances = [];
       
-      // Récupération des soldes pour chaque compte
       for (const accountId of userInfo.bankAccountIds) {
         const accountBalance = await goCardlessService.getAccountBalances(accountId);
         const accountDetails = await goCardlessService.getAccountDetails(accountId);
@@ -254,11 +249,9 @@ export class BankingController {
     }
   }
   
-  // Méthode utilitaire pour catégoriser automatiquement les transactions
   private categorizeTransaction(description: string): string {
     const lowerDesc = description.toLowerCase();
     
-    // Logique de catégorisation basée sur des mots-clés
     if (lowerDesc.includes('loyer') || lowerDesc.includes('rent')) {
       return 'Logement';
     } else if (lowerDesc.includes('salaire') || lowerDesc.includes('salary') || lowerDesc.includes('paie')) {
@@ -280,11 +273,9 @@ export class BankingController {
     return 'Divers';
   }
   
-  // Méthode pour détecter si une transaction est récurrente
   private detectRecurringTransaction(description: string): boolean {
     const lowerDesc = description.toLowerCase();
     
-    // Mots-clés pour les transactions récurrentes
     const recurringKeywords = [
       'abonnement', 'mensuel', 'subscription', 'monthly', 'netflix', 'spotify',
       'prime', 'forfait', 'assurance', 'loyer', 'rent', 'salary', 'salaire'

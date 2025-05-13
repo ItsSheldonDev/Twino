@@ -9,9 +9,6 @@ import mailjetService from '../services/external/mailjet';
 import crypto from 'crypto';
 
 export class ProfileController {
-  /**
-   * Récupère le profil de l'utilisateur connecté
-   */
   async getProfile(c: Context) {
     try {
       const user = c.get('user');
@@ -24,14 +21,12 @@ export class ProfileController {
         return c.json({ error: 'Utilisateur non trouvé' }, 404);
       }
       
-      // Formater les données du profil pour la réponse
       const profile = {
         id: userProfile.id,
         email: userProfile.email,
         name: userProfile.name,
         createdAt: userProfile.createdAt,
         updatedAt: userProfile.updatedAt,
-        // Convertir la photo de profil en base64 si elle existe
         profilePhoto: userProfile.profilePhoto 
           ? `data:image/jpeg;base64,${Buffer.from(userProfile.profilePhoto).toString('base64')}` 
           : null
@@ -44,9 +39,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Met à jour le nom de l'utilisateur
-   */
   async updateName(c: Context) {
     try {
       const user = c.get('user');
@@ -76,9 +68,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Change le mot de passe de l'utilisateur
-   */
   async changePassword(c: Context) {
     try {
       const user = c.get('user');
@@ -96,7 +85,6 @@ export class ProfileController {
         }, 400);
       }
       
-      // Vérifier le mot de passe actuel
       const userInfo = await prisma.user.findUnique({
         where: { id: user.userId },
         select: { passwordHash: true }
@@ -112,10 +100,8 @@ export class ProfileController {
         return c.json({ error: 'Mot de passe actuel incorrect' }, 401);
       }
       
-      // Hasher le nouveau mot de passe
       const newPasswordHash = await hashPassword(newPassword);
       
-      // Mettre à jour le mot de passe
       await prisma.user.update({
         where: { id: user.userId },
         data: { passwordHash: newPasswordHash }
@@ -130,9 +116,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Initie le processus de réinitialisation de mot de passe
-   */
   async forgotPassword(c: Context) {
     try {
       const { email } = await c.req.json();
@@ -141,36 +124,29 @@ export class ProfileController {
         return c.json({ error: 'Email requis' }, 400);
       }
       
-      // Vérifier si l'utilisateur existe
       const user = await prisma.user.findUnique({
         where: { email },
         select: { id: true, name: true }
       });
       
-      // Pour des raisons de sécurité, ne pas révéler si l'email existe ou non
       if (!user) {
         return c.json({
           message: 'Si votre email est enregistré, vous recevrez un lien de réinitialisation'
         });
       }
       
-      // Générer un token aléatoire
       const resetToken = crypto.randomBytes(32).toString('hex');
       
-      // Stocker le token avec une date d'expiration (24h)
       await prisma.user.update({
         where: { id: user.id },
         data: {
-          // Utilisez une assertion de type si nécessaire
           resetToken: resetToken as any,
           resetTokenExpires: new Date(Date.now() + Config.PASSWORD_RESET_EXPIRY) as any
         }
       });
       
-      // Construire l'URL de réinitialisation
       const resetUrl = `${Config.FRONTEND_URL}/reset-password?token=${resetToken}`;
       
-      // Envoyer l'email de réinitialisation
       const emailSent = await mailjetService.sendPasswordResetEmail(email, resetUrl, user.name);
       
       if (!emailSent) {
@@ -190,9 +166,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Réinitialise le mot de passe avec un token
-   */
   async resetPassword(c: Context) {
     try {
       const { token, newPassword } = await c.req.json();
@@ -207,13 +180,11 @@ export class ProfileController {
         }, 400);
       }
       
-      // Vérifier si le token est valide et non expiré
       const user = await prisma.user.findFirst({
         where: {
-          // Utilisez une assertion de type si nécessaire
           resetToken: token as any,
           resetTokenExpires: {
-            gt: new Date() // Token non expiré
+            gt: new Date() 
           } as any
         }
       });
@@ -224,10 +195,8 @@ export class ProfileController {
         }, 400);
       }
       
-      // Hasher le nouveau mot de passe
       const passwordHash = await hashPassword(newPassword);
       
-      // Mettre à jour le mot de passe et supprimer le token de réinitialisation
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -237,7 +206,6 @@ export class ProfileController {
         }
       });
       
-      // Générer un nouveau token JWT
       const authToken = generateToken(user.id, user.email);
       
       return c.json({
@@ -252,9 +220,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Change l'email de l'utilisateur
-   */
   async changeEmail(c: Context) {
     try {
       const user = c.get('user');
@@ -266,13 +231,11 @@ export class ProfileController {
         }, 400);
       }
       
-      // Vérifier le format de l'email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!emailRegex.test(newEmail)) {
         return c.json({ error: 'Format d\'email invalide' }, 400);
       }
       
-      // Vérifier si l'email est déjà utilisé
       const existingUser = await prisma.user.findUnique({
         where: { email: newEmail }
       });
@@ -281,7 +244,6 @@ export class ProfileController {
         return c.json({ error: 'Cet email est déjà utilisé' }, 409);
       }
       
-      // Vérifier le mot de passe actuel
       const userInfo = await prisma.user.findUnique({
         where: { id: user.userId },
         select: { passwordHash: true, email: true, name: true }
@@ -299,7 +261,6 @@ export class ProfileController {
       
       const oldEmail = userInfo.email;
       
-      // Mettre à jour l'email
       const updatedUser = await prisma.user.update({
         where: { id: user.userId },
         data: { email: newEmail },
@@ -310,14 +271,12 @@ export class ProfileController {
         }
       });
       
-      // Envoyer une notification de changement d'email
       await mailjetService.sendEmailChangeNotification(
         oldEmail,
         newEmail,
         userInfo.name
       );
       
-      // Générer un nouveau token avec le nouvel email
       const token = generateToken(updatedUser.id, updatedUser.email);
       
       return c.json({
@@ -331,14 +290,10 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Met à jour la photo de profil
-   */
   async updateProfilePhoto(c: Context) {
     try {
       const user = c.get('user');
       
-      // Obtenir le fichier de la requête multipart
       const file = await c.req.parseBody();
       const profilePhoto = file.photo;
       
@@ -346,7 +301,6 @@ export class ProfileController {
         return c.json({ error: 'Photo de profil requise' }, 400);
       }
       
-      // Vérifier le type de fichier
       if (profilePhoto instanceof File) {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg'];
         if (!allowedTypes.includes(profilePhoto.type)) {
@@ -355,17 +309,14 @@ export class ProfileController {
           }, 400);
         }
         
-        // Vérifier la taille du fichier (5 MB max)
         if (profilePhoto.size > Config.PROFILE_PHOTO_MAX_SIZE) {
           return c.json({ 
             error: 'La taille du fichier doit être inférieure à 5 MB' 
           }, 400);
         }
         
-        // Lire le contenu du fichier
         const photoBuffer = await profilePhoto.arrayBuffer();
         
-        // Mettre à jour la photo de profil avec une assertion de type
         await prisma.user.update({
           where: { id: user.userId },
           data: { 
@@ -387,9 +338,6 @@ export class ProfileController {
     }
   }
   
-  /**
-   * Supprime la photo de profil
-   */
   async deleteProfilePhoto(c: Context) {
     try {
       const user = c.get('user');

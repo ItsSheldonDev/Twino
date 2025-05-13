@@ -1,7 +1,6 @@
 import type { Context } from 'hono';
 import { prisma } from '../app';
 
-// Définition des interfaces pour éviter les types 'any'
 interface CategoryCount {
   category: string | null;
   _count: {
@@ -19,14 +18,12 @@ export class TransactionController {
     try {
       const user = c.get('user');
       
-      // Paramètres de pagination et filtrage
       const pageQuery = c.req.query('page');
       const limitQuery = c.req.query('limit');
       const page = pageQuery ? parseInt(pageQuery, 10) : 1;
       const limit = limitQuery ? parseInt(limitQuery, 10) : 20;
       const skip = (page - 1) * limit;
       
-      // Filtres
       const category = c.req.query('category');
       const startDate = c.req.query('startDate');
       const endDate = c.req.query('endDate');
@@ -38,7 +35,6 @@ export class TransactionController {
       const isShared = isSharedStr === 'true' ? true : 
                        isSharedStr === 'false' ? false : undefined;
       
-      // Construction du filtre
       const filter: any = {
         userId: user.userId
       };
@@ -75,7 +71,6 @@ export class TransactionController {
         filter.isShared = isShared;
       }
       
-      // Récupération des transactions
       const transactions = await prisma.transaction.findMany({
         where: filter,
         orderBy: {
@@ -85,7 +80,6 @@ export class TransactionController {
         take: limit
       });
       
-      // Comptage du total pour la pagination
       const total = await prisma.transaction.count({
         where: filter
       });
@@ -113,7 +107,6 @@ export class TransactionController {
       const limitQuery = c.req.query('limit');
       const limit = limitQuery ? parseInt(limitQuery, 10) : 5;
       
-      // Récupération des dernières transactions
       const transactions = await prisma.transaction.findMany({
         where: {
           userId: user.userId
@@ -141,7 +134,6 @@ export class TransactionController {
       const id = c.req.param('id');
       const data = await c.req.json();
       
-      // Validation des données
       if (data.amount !== undefined && (isNaN(data.amount) || data.amount === '')) {
         return c.json({ 
           error: 'Montant invalide' 
@@ -155,7 +147,6 @@ export class TransactionController {
         }, 400);
       }
       
-      // Vérification que la transaction appartient à l'utilisateur
       const transaction = await prisma.transaction.findFirst({
         where: {
           id,
@@ -169,7 +160,6 @@ export class TransactionController {
         }, 404);
       }
       
-      // Mise à jour de la transaction
       const updatedTransaction = await prisma.transaction.update({
         where: { id },
         data: {
@@ -196,8 +186,6 @@ export class TransactionController {
     try {
       const user = c.get('user');
       
-      // Récupérer toutes les catégories utilisées
-      // Nous devons typer correctement le résultat de l'opération groupBy
       const categoriesResult = await prisma.$queryRaw`
         SELECT category, COUNT(category) as count
         FROM transactions
@@ -206,10 +194,8 @@ export class TransactionController {
         ORDER BY count DESC
       `;
       
-      // Formatage du résultat
       const categories: CategorySummary[] = [];
       
-      // Transformation du résultat brut en format attendu
       for (const row of categoriesResult as any[]) {
         if (row.category) {
           categories.push({
@@ -242,22 +228,18 @@ export class TransactionController {
         
       const month = monthQuery 
         ? parseInt(monthQuery, 10) - 1 
-        : null; // -1 car les mois JavaScript commencent à 0
+        : null;
       
-      // Définition de la période
       let startDate, endDate;
       
       if (month !== null) {
-        // Statistiques pour un mois spécifique
         startDate = new Date(year, month, 1);
-        endDate = new Date(year, month + 1, 0); // Dernier jour du mois
+        endDate = new Date(year, month + 1, 0);
       } else {
-        // Statistiques pour l'année entière
         startDate = new Date(year, 0, 1);
-        endDate = new Date(year, 12, 0); // Dernier jour de l'année
+        endDate = new Date(year, 12, 0);
       }
       
-      // Récupération des transactions de la période
       const transactions = await prisma.transaction.findMany({
         where: {
           userId: user.userId,
@@ -268,11 +250,9 @@ export class TransactionController {
         }
       });
       
-      // Calcul des statistiques
       let totalIncome = 0;
       let totalExpense = 0;
       
-      // Catégories de dépenses
       const categories: Record<string, number> = {};
       
       transactions.forEach((transaction: any) => {
@@ -281,13 +261,11 @@ export class TransactionController {
         } else {
           totalExpense += Math.abs(transaction.amount);
           
-          // Ajout à la catégorie
           const category = transaction.category || 'Divers';
           categories[category] = (categories[category] || 0) + Math.abs(transaction.amount);
         }
       });
       
-      // Conversion des catégories en tableau pour le tri
       const categoriesArray = Object.entries(categories).map(([name, amount]) => ({
         name,
         amount

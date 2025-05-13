@@ -2,7 +2,6 @@ import type { Context } from 'hono';
 import { prisma } from '../app';
 import { addMonths, format, parseISO, startOfMonth } from 'date-fns';
 
-// Interface pour les données d'abonnement
 interface SubscriptionData {
   name: string;
   amount: number;
@@ -17,7 +16,6 @@ export class SubscriptionController {
     try {
       const user = c.get('user');
       
-      // Récupération des abonnements
       const subscriptions = await prisma.subscription.findMany({
         where: {
           userId: user.userId
@@ -43,7 +41,6 @@ export class SubscriptionController {
       const user = c.get('user');
       const data = await c.req.json() as SubscriptionData;
       
-      // Validation des données
       if (!data.name || data.name.trim() === '') {
         return c.json({ error: 'Nom d\'abonnement requis' }, 400);
       }
@@ -64,7 +61,6 @@ export class SubscriptionController {
         return c.json({ error: 'Ratio de partage invalide (0-100)' }, 400);
       }
       
-      // Création de l'abonnement
       const subscription = await prisma.subscription.create({
         data: {
           userId: user.userId,
@@ -95,7 +91,6 @@ export class SubscriptionController {
       const id = c.req.param('id');
       const data = await c.req.json() as Partial<SubscriptionData>;
       
-      // Vérification que l'abonnement appartient à l'utilisateur
       const subscription = await prisma.subscription.findFirst({
         where: {
           id,
@@ -109,7 +104,6 @@ export class SubscriptionController {
         }, 404);
       }
       
-      // Validation des données
       if (data.amount !== undefined && (isNaN(data.amount) || data.amount <= 0)) {
         return c.json({ error: 'Montant invalide' }, 400);
       }
@@ -122,7 +116,6 @@ export class SubscriptionController {
         return c.json({ error: 'Ratio de partage invalide (0-100)' }, 400);
       }
       
-      // Mise à jour de l'abonnement
       const updatedSubscription = await prisma.subscription.update({
         where: { id },
         data: {
@@ -152,7 +145,6 @@ export class SubscriptionController {
       const user = c.get('user');
       const id = c.req.param('id');
       
-      // Vérification que l'abonnement appartient à l'utilisateur
       const subscription = await prisma.subscription.findFirst({
         where: {
           id,
@@ -166,7 +158,6 @@ export class SubscriptionController {
         }, 404);
       }
       
-      // Suppression de l'abonnement
       await prisma.subscription.delete({
         where: { id }
       });
@@ -188,14 +179,12 @@ export class SubscriptionController {
       const monthsAheadStr = c.req.query('months');
       const monthsAhead = monthsAheadStr ? parseInt(monthsAheadStr, 10) : 1;
       
-      // Récupération des abonnements de l'utilisateur
       const subscriptions = await prisma.subscription.findMany({
         where: {
           userId: user.userId
         }
       });
       
-      // Calcul des prochaines échéances
       const today = new Date();
       const upcoming = [];
       
@@ -207,7 +196,6 @@ export class SubscriptionController {
         for (const subscription of subscriptions) {
           let dueDate = new Date(targetYear, targetMonth, subscription.dueDate);
           
-          // Ajustement pour les mois avec moins de jours
           if (subscription.dueDate > 28) {
             const lastDayOfMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
             if (subscription.dueDate > lastDayOfMonth) {
@@ -215,7 +203,6 @@ export class SubscriptionController {
             }
           }
           
-          // N'inclure que les dates futures pour le mois en cours
           if (i === 0 && dueDate.getDate() < today.getDate()) {
             continue;
           }
@@ -228,7 +215,6 @@ export class SubscriptionController {
         }
       }
       
-      // Tri par date d'échéance
       upcoming.sort((a, b) => {
         return new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime();
       });
@@ -248,14 +234,12 @@ export class SubscriptionController {
     try {
       const user = c.get('user');
       
-      // Récupération des abonnements
       const subscriptions = await prisma.subscription.findMany({
         where: {
           userId: user.userId
         }
       });
       
-      // Calcul du montant total mensuel
       let totalAmount = 0;
       let sharedAmount = 0;
       
@@ -263,13 +247,11 @@ export class SubscriptionController {
         totalAmount += subscription.amount;
         
         if (subscription.isShared && subscription.sharingRatio !== null) {
-          // Calcul du montant partagé selon le ratio
           const effectiveAmount = subscription.amount * (subscription.sharingRatio / 100);
           sharedAmount += effectiveAmount;
         }
       });
       
-      // Regroupement par catégorie
       const categories: Record<string, number> = {};
       
       subscriptions.forEach(subscription => {
@@ -277,7 +259,6 @@ export class SubscriptionController {
         categories[category] = (categories[category] || 0) + subscription.amount;
       });
       
-      // Conversion des catégories en tableau
       const categoriesBreakdown = Object.entries(categories).map(([name, amount]) => ({
         name,
         amount,

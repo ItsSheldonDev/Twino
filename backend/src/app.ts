@@ -1,5 +1,3 @@
-// src/app.ts - Version sans Swagger
-
 import { Hono } from 'hono';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
@@ -17,16 +15,13 @@ import sharedRoutes from './routes/shared';
 import notificationRoutes from './routes/notifications';
 import profileRoutes from './routes/profile';
 
-// Initialisation du client Prisma
 export const prisma = new PrismaClient();
 
-// Initialisation de l'application Hono
 const app = new Hono();
 
-// Middlewares globaux
 app.use('*', logger());
 app.use('*', cors({
-  origin: '*', // En production, spécifiez les origines autorisées
+  origin: '*',
   allowHeaders: ['Authorization', 'Content-Type'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   exposeHeaders: ['Content-Length', 'Content-Type'],
@@ -35,7 +30,6 @@ app.use('*', cors({
 }));
 app.use('*', prettyJSON());
 
-// Gestion des erreurs
 app.onError((err, c) => {
   console.error(`[ERROR] ${err.message}`, err.stack);
   return c.json({ 
@@ -44,7 +38,6 @@ app.onError((err, c) => {
   }, 500);
 });
 
-// Routes de l'API
 app.route('/api/auth', authRoutes);
 app.route('/api/banking', bankingRoutes);
 app.route('/api/transactions', transactionRoutes);
@@ -55,7 +48,6 @@ app.route('/api/shared', sharedRoutes);
 app.route('/api/notifications', notificationRoutes);
 app.route('/api/profile', profileRoutes);
 
-// Route de statut de l'API
 app.get('/', (c) => {
   return c.json({ 
     status: 'online',
@@ -64,5 +56,4 @@ app.get('/', (c) => {
   });
 });
 
-// Exporter l'application
 export default app;

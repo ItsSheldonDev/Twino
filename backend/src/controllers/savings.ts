@@ -2,7 +2,6 @@ import type { Context } from 'hono';
 import { prisma } from '../app';
 import type { SavingsAccount, SavingsGoal } from '@prisma/client';
 
-// Interface pour les données de compte d'épargne
 interface SavingsAccountData {
   type: string;
   name: string;
@@ -11,7 +10,6 @@ interface SavingsAccountData {
   interestRate?: number;
 }
 
-// Interface pour les données d'objectif d'épargne
 interface SavingsGoalData {
   name: string;
   targetAmount: number;
@@ -25,7 +23,6 @@ export class SavingsController {
     try {
       const user = c.get('user');
       
-      // Récupération des comptes d'épargne
       const accounts = await prisma.savingsAccount.findMany({
         where: {
           userId: user.userId
@@ -48,7 +45,6 @@ export class SavingsController {
       const user = c.get('user');
       const data = await c.req.json() as SavingsAccountData;
       
-      // Validation des données
       if (!data.type || data.type.trim() === '') {
         return c.json({ error: 'Type de compte requis' }, 400);
       }
@@ -65,7 +61,6 @@ export class SavingsController {
         return c.json({ error: 'Taux d\'intérêt invalide' }, 400);
       }
       
-      // Création du compte d'épargne
       const account = await prisma.savingsAccount.create({
         data: {
           userId: user.userId,
@@ -95,7 +90,6 @@ export class SavingsController {
       const id = c.req.param('id');
       const data = await c.req.json() as Partial<SavingsAccountData>;
       
-      // Vérification que le compte appartient à l'utilisateur
       const account = await prisma.savingsAccount.findFirst({
         where: {
           id,
@@ -109,7 +103,6 @@ export class SavingsController {
         }, 404);
       }
       
-      // Validation des données
       if (data.monthlyContribution !== undefined && (isNaN(data.monthlyContribution) || data.monthlyContribution < 0)) {
         return c.json({ error: 'Contribution mensuelle invalide' }, 400);
       }
@@ -118,7 +111,6 @@ export class SavingsController {
         return c.json({ error: 'Taux d\'intérêt invalide' }, 400);
       }
       
-      // Mise à jour du compte d'épargne
       const updatedAccount = await prisma.savingsAccount.update({
         where: { id },
         data: {
@@ -147,7 +139,6 @@ export class SavingsController {
       const user = c.get('user');
       const id = c.req.param('id');
       
-      // Vérification que le compte appartient à l'utilisateur
       const account = await prisma.savingsAccount.findFirst({
         where: {
           id,
@@ -161,7 +152,6 @@ export class SavingsController {
         }, 404);
       }
       
-      // Suppression du compte d'épargne
       await prisma.savingsAccount.delete({
         where: { id }
       });
@@ -181,7 +171,6 @@ export class SavingsController {
     try {
       const user = c.get('user');
       
-      // Récupération des objectifs d'épargne
       const goals = await prisma.savingsGoal.findMany({
         where: {
           userId: user.userId
@@ -204,7 +193,6 @@ export class SavingsController {
       const user = c.get('user');
       const data = await c.req.json() as SavingsGoalData;
       
-      // Validation des données
       if (!data.name || data.name.trim() === '') {
         return c.json({ error: 'Nom d\'objectif requis' }, 400);
       }
@@ -213,7 +201,6 @@ export class SavingsController {
         return c.json({ error: 'Montant cible invalide' }, 400);
       }
       
-      // Création de l'objectif d'épargne
       const goal = await prisma.savingsGoal.create({
         data: {
           userId: user.userId,
@@ -243,7 +230,6 @@ export class SavingsController {
       const id = c.req.param('id');
       const data = await c.req.json() as Partial<SavingsGoalData>;
       
-      // Vérification que l'objectif appartient à l'utilisateur
       const goal = await prisma.savingsGoal.findFirst({
         where: {
           id,
@@ -257,7 +243,6 @@ export class SavingsController {
         }, 404);
       }
       
-      // Validation des données
       if (data.targetAmount !== undefined && (isNaN(data.targetAmount) || data.targetAmount <= 0)) {
         return c.json({ error: 'Montant cible invalide' }, 400);
       }
@@ -266,7 +251,6 @@ export class SavingsController {
         return c.json({ error: 'Montant actuel invalide' }, 400);
       }
       
-      // Mise à jour de l'objectif d'épargne
       const updatedGoal = await prisma.savingsGoal.update({
         where: { id },
         data: {
@@ -295,7 +279,6 @@ export class SavingsController {
       const user = c.get('user');
       const id = c.req.param('id');
       
-      // Vérification que l'objectif appartient à l'utilisateur
       const goal = await prisma.savingsGoal.findFirst({
         where: {
           id,
@@ -309,7 +292,6 @@ export class SavingsController {
         }, 404);
       }
       
-      // Suppression de l'objectif d'épargne
       await prisma.savingsGoal.delete({
         where: { id }
       });
@@ -329,32 +311,26 @@ export class SavingsController {
     try {
       const user = c.get('user');
       
-      // Récupération des comptes d'épargne
       const accounts = await prisma.savingsAccount.findMany({
         where: {
           userId: user.userId
         }
       });
       
-      // Récupération des objectifs d'épargne
       const goals = await prisma.savingsGoal.findMany({
         where: {
           userId: user.userId
         }
       });
       
-      // Calcul du total des comptes d'épargne
       const totalSavingsBalance = accounts.reduce((sum: number, account: SavingsAccount) => sum + account.balance, 0);
       
-      // Calcul du total des contributions mensuelles
       const monthlyContributions = accounts.reduce((sum: number, account: SavingsAccount) => sum + account.monthlyContribution, 0);
       
-      // Calcul du total des objectifs d'épargne
       const totalGoalsTarget = goals.reduce((sum: number, goal: SavingsGoal) => sum + goal.targetAmount, 0);
       const totalGoalsCurrent = goals.reduce((sum: number, goal: SavingsGoal) => sum + goal.currentAmount, 0);
       const totalGoalsRemaining = totalGoalsTarget - totalGoalsCurrent;
       
-      // Calcul du temps estimé pour atteindre tous les objectifs
       const monthsToGoals = monthlyContributions > 0 ? Math.ceil(totalGoalsRemaining / monthlyContributions) : null;
       
       return c.json({

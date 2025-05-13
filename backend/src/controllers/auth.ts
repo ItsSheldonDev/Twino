@@ -4,14 +4,13 @@ import { hashPassword, verifyPassword } from '../utils/crypto';
 import { generateToken } from '../utils/jwt';
 import Config from '../config';
 
-// Interface pour les données d'inscription
+
 interface RegisterData {
   email: string;
   name: string;
   password: string;
 }
 
-// Interface pour les données de connexion
 interface LoginData {
   email: string;
   password: string;
@@ -22,7 +21,6 @@ export class AuthController {
     try {
       const data = await c.req.json() as RegisterData;
       
-      // Vérification du nombre d'utilisateurs existants
       const userCount = await prisma.user.count();
       if (userCount >= Config.MAX_USERS) {
         return c.json({ 
@@ -30,7 +28,6 @@ export class AuthController {
         }, 403);
       }
       
-      // Vérification si l'email existe déjà
       const existingUser = await prisma.user.findUnique({
         where: { email: data.email }
       });
@@ -41,23 +38,19 @@ export class AuthController {
         }, 409);
       }
       
-      // Hachage du mot de passe
       const passwordHash = await hashPassword(data.password);
       
-      // Création de l'utilisateur
       const user = await prisma.user.create({
         data: {
           email: data.email,
           name: data.name,
           passwordHash,
-          // Création des paramètres de notification par défaut
           notificationSettings: {
             create: {}
           }
         }
       });
       
-      // Génération du token
       const token = generateToken(user.id, user.email);
       
       return c.json({
@@ -81,7 +74,6 @@ export class AuthController {
     try {
       const data = await c.req.json() as LoginData;
       
-      // Recherche de l'utilisateur
       const user = await prisma.user.findUnique({
         where: { email: data.email }
       });
@@ -92,7 +84,6 @@ export class AuthController {
         }, 401);
       }
       
-      // Vérification du mot de passe
       const isPasswordValid = await verifyPassword(user.passwordHash, data.password);
       
       if (!isPasswordValid) {
@@ -101,7 +92,6 @@ export class AuthController {
         }, 401);
       }
       
-      // Génération du token
       const token = generateToken(user.id, user.email);
       
       return c.json({
@@ -131,7 +121,6 @@ export class AuthController {
         }, 401);
       }
       
-      // Récupération des données utilisateur
       const userData = await prisma.user.findUnique({
         where: { id: user.userId },
         select: {
